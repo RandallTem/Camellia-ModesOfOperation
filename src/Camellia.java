@@ -207,7 +207,7 @@ public class Camellia {
         return subkeys;
     }
 
-    private long[] transformKeys128(long[] subkeys){
+    protected long[] transformKeys128(long[] subkeys){
         long[] new_subkeys = new long[subkeys.length];
         new_subkeys[0] = subkeys[24];
         new_subkeys[1] = subkeys[25];
@@ -220,7 +220,7 @@ public class Camellia {
         return new_subkeys;
     }
 
-    private long[] transformKeys192_256(long[] subkeys){
+    protected long[] transformKeys192_256(long[] subkeys){
         long[] new_subkeys = new long[subkeys.length];
         new_subkeys[0] = subkeys[32];
         new_subkeys[1] = subkeys[33];
@@ -269,7 +269,7 @@ public class Camellia {
         return ((long)y1 << 32) | (long)y2 & 0xFFFFFFFFL;
     }
 
-    protected long[] crypt(long D1, long D2, long[] subkeys){
+    protected long[] cryptBlock(long D1, long D2, long[] subkeys){
         int size = subkeys.length;
         D1 = D1 ^ subkeys[0];
         D2 = D2 ^ subkeys[1];
@@ -286,132 +286,5 @@ public class Camellia {
         D1 = D1 ^ subkeys[size-1];
         long[] res = {D2, D1};
         return res;
-    }
-
-    private byte[][] longToByte(long D1, long D2){
-        byte[][] bytes = new byte[2][8];
-        for (int i = 7; i >=0 ; i--){
-            bytes[0][i]= (byte)D1;
-            bytes[1][i] = (byte)D2;
-            D1 >>>= 8;
-            D2 >>>= 8;
-        }
-        return bytes;
-    }
-
-    private int countExtraBytes(long[] res){
-        int counter = 0, index = 1;
-        long mask = 0xFFL, comp = 0x80L;
-        for (int i = 0; i < 16; i++){
-            if (i == 8) {
-                mask = 0xFFL;
-                comp = 0x80L;
-                index = 0;
-            }
-            if ((res[index] & mask) == 0) {
-                counter++;
-                mask <<= 8;
-                comp <<= 8;
-            } else if ((res[index] & mask) == comp) {
-                return ++counter;
-            } else {
-                return 0;
-            }
-        }
-        return 0;
-    }
-
-    public void Encrypt(String path, String key){
-        try {
-            BufferedInputStream reader = new BufferedInputStream(new FileInputStream(path), 16);
-            BufferedOutputStream writer = new BufferedOutputStream(
-                    new FileOutputStream(path+".crptd"));
-            byte[] bytes = new byte[16];
-            long D1 = 0, D2 = 0;
-            int i;
-            long[] subkeys = keySchedule(key);
-            while ((i = (reader.read(bytes))) == 16) {
-                D1 = ByteBuffer.wrap(Arrays.copyOfRange(bytes,0,8)).getLong();
-                D2 = ByteBuffer.wrap(Arrays.copyOfRange(bytes,8,16)).getLong();
-                long[] res = crypt(D1, D2, subkeys);
-                byte[][] res_b = longToByte(res[0], res[1]);
-                writer.write(res_b[0]);
-                writer.write(res_b[1]);
-                writer.flush();
-            }
-            if (i > 0 && i < 7){
-                D1 = 0;
-                D2 = 0;
-                for (int j = 0; j < i; j++){
-                    D1 <<= 8;
-                    D1 += bytes[j];
-                }
-                D1 <<= 1;
-                D1 += 1;
-                D1 <<= 64-(i*8+1);
-            } else if (i >= 8){
-                D1 = ByteBuffer.wrap(Arrays.copyOfRange(bytes,0,8)).getLong();
-                D2 = 0;
-                for (int j = 8; j < i; j++){
-                    D2 <<= 8;
-                    D2 += bytes[j];
-                }
-                D2 <<= 1;
-                D2 += 1;
-                D2 <<= 64-((i-8)*8+1);
-            }
-            if (i != -1) {
-                long[] res = crypt(D1, D2, subkeys);
-                byte[][] res_b = longToByte(res[0], res[1]);
-                writer.write(res_b[0]);
-                writer.write(res_b[1]);
-                writer.flush();
-            }
-            reader.close();
-            writer.close();
-        } catch (Exception e) {
-            System.out.println("Error occurred");
-            System.out.println(e);
-            return;
-        }
-    }
-
-    public void Decrypt(String path, String key){
-        try {
-            BufferedInputStream reader = new BufferedInputStream(new FileInputStream(path), 16);
-            BufferedOutputStream writer = new BufferedOutputStream(
-                    new FileOutputStream(path.substring(0, path.lastIndexOf("."))));
-            byte[] bytes = new byte[16];
-            long D1 = 0, D2 = 0;
-            int i;
-            long[] subkeys = keySchedule(key);
-            subkeys = subkeys.length == 26 ? transformKeys128(subkeys) : transformKeys192_256(subkeys);
-            while ((i = (reader.read(bytes))) == 16) {
-                D1 = ByteBuffer.wrap(Arrays.copyOfRange(bytes, 0, 8)).getLong();
-                D2 = ByteBuffer.wrap(Arrays.copyOfRange(bytes, 8, 16)).getLong();
-                long[] res = crypt(D1, D2, subkeys);
-                byte[][] res_b = longToByte(res[0], res[1]);
-                if (reader.available() == 0) {
-                    int counter = countExtraBytes(res);
-                    if (counter <= 8) {
-                        writer.write(res_b[0]);
-                        writer.write(res_b[1], 0, 8-counter);
-                    } else {
-                        writer.write(res_b[0], 0, 16-counter);
-                    }
-                    writer.flush();
-                } else {
-                    writer.write(res_b[0]);
-                    writer.write(res_b[1]);
-                    writer.flush();
-                }
-            }
-            reader.close();
-            writer.close();
-        } catch (Exception e) {
-            System.out.println("Error occurred");
-            System.out.println(e);
-            return;
-        }
     }
 }
