@@ -1,7 +1,9 @@
 public class ModesOfOperation_Test {
     public static void main(String[] args) {
-       OMAC omac_test = new OMAC();
-       long[] res = omac_test.getMAC("resources/test.txt", "1234567887654321");
-       System.out.println();
+       MGM test = new MGM();
+       test.Encrypt("resources/File_5MB.txt", "resources/AAD.txt", "1234567812345678");
+       System.out.println(
+               test.Decrypt("resources/File_5MB.txt.crptd", "resources/AAD.txt", "1234567812345678")
+       );
     }
 }
