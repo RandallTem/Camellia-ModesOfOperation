@@ -74,7 +74,7 @@ public class CBC {
                 writer.write(ciphertext_bytes[1]);
                 writer.flush();
             }
-            if (i > 0 && i < 7){
+            if (i > 0 && i < 8){
                 plaintext[0] = 0;
                 plaintext[1] = 0;
                 for (int j = 0; j < i; j++){
